@@ -74,4 +74,46 @@ else:
             total_horas_impresion = t_h + (t_m / 60)
 
             for i in range(int(num_colores)):
-                with st.
+                with st.expander(f"Color {i+1}", expanded=True):
+                    m_col1, m_col2 = st.columns(2)
+                    with m_col1:
+                        m = st.selectbox(f"Marca C{i+1}", df_cat['Marca'].unique(), key=f"m{i}")
+                        c = st.selectbox(f"Color C{i+1}", df_cat[df_cat['Marca'] == m]['Color'], key=f"c{i}")
+                        fila = df_cat[(df_cat['Marca'] == m) & (df_cat['Color'] == c)].iloc[0]
+                        costo_g = fila['Costo'] / fila['Peso']
+                        st.caption(f"Costo por gramo: ${costo_g:.4f}")
+                    with m_col2:
+                        g = st.number_input(f"Gramos C{i+1}", min_value=0.1, key=f"g{i}")
+                    detalles_material.append({"costo_g": costo_g, "gramos": g})
+
+    with col2:
+        st.subheader("2. Mano de Obra y Ganancia")
+        mo_h = st.number_input("Horas manuales (Lijado/Setup)", min_value=0)
+        mo_m = st.number_input("Minutos manuales", min_value=0, max_value=59)
+        tiempo_mo_activa = mo_h + (mo_m / 60)
+
+        utilidad_slider = st.slider("Margen de Utilidad (%)", 5, 100, 40)
+        utilidad_factor = utilidad_slider / 100
+
+    # --- CÁLCULOS ---
+    costo_filamento_total = sum(item['costo_g'] * item['gramos'] for item in detalles_material)
+    tasa_fija_hr = COSTO_ENERGIA_HR + AMORTIZACION_HR + RENTA_HR + INTERNET_HR + MO_INACTIVA_HR
+    costo_fijo_total = tasa_fija_hr * total_horas_impresion
+    costo_mo_activa = tiempo_mo_activa * MO_ACTIVA_HR
+    
+    costo_total_prod = costo_filamento_total + costo_fijo_total + costo_mo_activa
+    precio_final = costo_total_prod * (1 + utilidad_factor)
+
+    # --- RESULTADOS ---
+    st.markdown("---")
+    st.header(f"💰 Precio Final: ${precio_final:.2f} MXN")
+    
+    c1, c2, c3 = st.columns(3)
+    c1.metric("Costo Producción", f"${costo_total_prod:.2f}")
+    c2.metric("Ganancia", f"${(precio_final - costo_total_prod):.2f}")
+    c3.metric("Tiempo Máquina", f"{total_horas_impresion:.2f} hrs")
+
+    with st.expander("Ver desglose detallado"):
+        st.write(f"• **Materiales:** ${costo_filamento_total:.2f}")
+        st.write(f"• **Costos Fijos ({total_horas_impresion:.2f}h máquina):** ${costo_fijo_total:.2f}")
+        st.write(f"• **Mano de Obra Activa:** ${costo_mo_activa:.2f}")
